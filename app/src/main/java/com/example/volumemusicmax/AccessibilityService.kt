@@ -16,6 +16,12 @@ class AccessibilityService : AccessibilityService() {
         setMaxVolume()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+
+        setMaxVolume()
+    }
+
     override fun onAccessibilityEvent(accessibilityEvent: AccessibilityEvent) {
     }
 
@@ -31,6 +37,7 @@ class AccessibilityService : AccessibilityService() {
                     setMaxVolume()
                     return true
                 }
+
                 KeyEvent.KEYCODE_VOLUME_UP -> {
                     setMaxVolume()
                     return true
