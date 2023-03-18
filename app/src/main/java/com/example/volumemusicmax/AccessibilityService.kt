@@ -8,18 +8,25 @@ import android.provider.Settings
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class AccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
 
-        setMaxVolume()
+        MainScope().launch(Dispatchers.Default) {
+            delay(5000)
+            setMaxVolume(isMinimum = false, isCoroutine = true)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
-        setMaxVolume()
+        setMaxVolume(isMinimum = false)
     }
 
     override fun onAccessibilityEvent(accessibilityEvent: AccessibilityEvent) {
@@ -31,69 +38,73 @@ class AccessibilityService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val action = event.action
         val keyCode = event.keyCode
+
         if (action == KeyEvent.ACTION_DOWN) {
             when (keyCode) {
                 KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    setMaxVolume()
+                    setMaxVolume(isMinimum = true)
                     return true
                 }
 
                 KeyEvent.KEYCODE_VOLUME_UP -> {
-                    setMaxVolume()
+                    setMaxVolume(isMinimum = false)
                     return true
                 }
             }
         }
+
         return false
     }
 
-    private fun setMaxVolume() {
+    private fun setMaxVolume(isMinimum: Boolean, isCoroutine: Boolean = false) {
         try {
             val audioManager: AudioManager =
                 applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
             audioManager.setStreamVolume(
                 AudioManager.STREAM_MUSIC,
-                audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+                if (isMinimum) audioManager.getStreamMinVolume(AudioManager.STREAM_MUSIC) else
+                    audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
                 0
             )
-//        audioManager.setStreamVolume(AudioManager.STREAM_ACCESSIBILITY, audioManager.getStreamMinVolume(AudioManager.STREAM_ACCESSIBILITY), 0)
+
             audioManager.setStreamVolume(
                 AudioManager.STREAM_ALARM,
                 audioManager.getStreamMinVolume(AudioManager.STREAM_ALARM),
                 0
             )
-//        audioManager.setStreamVolume(AudioManager.STREAM_DTMF, audioManager.getStreamMinVolume(AudioManager.STREAM_DTMF), 0)
-//        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, audioManager.getStreamMinVolume(AudioManager.STREAM_NOTIFICATION), 0)
             audioManager.setStreamVolume(
                 AudioManager.STREAM_RING,
                 audioManager.getStreamMinVolume(AudioManager.STREAM_RING),
                 0
             )
-//        audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, audioManager.getStreamMinVolume(AudioManager.STREAM_SYSTEM), 0)
             audioManager.setStreamVolume(
                 AudioManager.STREAM_VOICE_CALL,
                 audioManager.getStreamMinVolume(AudioManager.STREAM_VOICE_CALL),
                 0
             )
 
-            updateTotalUnsafeMilliseconds(contentResolver, 1)
+            updateTotalUnsafeMilliseconds(contentResolver)
 
-            Toast.makeText(
-                applicationContext,
-                "Громкость установлена на максимум!",
-                Toast.LENGTH_SHORT
-            ).show()
+            if (!isCoroutine) {
+                Toast.makeText(
+                    applicationContext,
+                    if (isMinimum) "Минимум громкости!" else "Максимум громкости!",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         } catch (e: Exception) {
-            Toast.makeText(
-                applicationContext,
-                "Volume Music Max: $e",
-                Toast.LENGTH_SHORT
-            ).show()
+            if (!isCoroutine) {
+                Toast.makeText(
+                    applicationContext,
+                    "Volume Music Max: $e",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
-    private fun updateTotalUnsafeMilliseconds(contentResolver: ContentResolver?, value: Int) {
-        Settings.Secure.putInt(contentResolver, "unsafe_volume_music_active_ms", value)
+    private fun updateTotalUnsafeMilliseconds(contentResolver: ContentResolver?) {
+        Settings.Secure.putInt(contentResolver, "unsafe_volume_music_active_ms", 1)
     }
 }
